@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import threading
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from cowculator.srv import Calculate
+
 cow = r"""
                                        /;    ;\
                                    __  \\____//
@@ -36,33 +36,29 @@ cow = r"""
         `^'     \ :/           `^'  `-^-'   \v/ :  \/⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 """
 
-class MinimalPublisher(Node):
-    def __init__(self):
-        super().__init__('minimal_publisher')
-        self.publisher_ = self.create_publisher(String, 'topic', 10)
-        
-        # Start a background thread to handle user input without blocking ROS
-        self.input_thread = threading.Thread(target=self.get_user_input, daemon=True)
-        self.input_thread.start()
+class CalculatorClient(Node):
 
-    def get_user_input(self):
-        # This runs safely in the background
-        while rclpy.ok():
-            try:
-                num1 = input(">>> ur first num here: ")
-                if num1.lower() == 'exit':
-                    rclpy.shutdown()
-                    break
-                op = input(">>> ur operation here: ")
-                num2 = input(">>> ur second num here: ")
-                
-                # Publish the message
-                msg = String()
-                msg.data = f"{num1} {op} {num2}"
-                self.publisher_.publish(msg)
-                self.get_logger().info(f'Publishing: "{msg.data}"')
-            except EOFError:
-                break
+    def __init__(self):
+        super().__init__('calculator_client')
+
+        self.client = self.create_client(
+            Calculate,
+            'calculate'
+        )
+
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info(
+                'the friendly cow is on vacation u must wait...'
+            )
+
+    def send_request(self, operation, a, b):
+        request = Calculate.Request()
+
+        request.operation = operation
+        request.a = a
+        request.b = b
+
+        return self.client.call_async(request)
 
 def main(args=None):
     password = input("Enter the secure password: ")
@@ -72,15 +68,24 @@ def main(args=None):
     print("***** Welcome to the Cowculator *****")
     print(cow)
     rclpy.init(args=args)
-    minimal_publisher = MinimalPublisher()
+    node = CalculatorClient()
+    operation = ""
+    while operation != "exit":
+        operation = input("ur operation here: ")
+        a = float(input("ur first num here: "))
+        b = float(input("ur second num here: "))
+        
+        future = node.send_request(operation, a, b)
 
-    try:
-        rclpy.spin(minimal_publisher)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        rclpy.spin_until_future_complete(node, future)
+        response = future.result()
+
+        node.get_logger().info(
+            f'Result: {response.result}'
+        )
+
+    node.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
