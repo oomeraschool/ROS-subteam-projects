@@ -27,7 +27,7 @@ if circles is not None:
     x, y, r = circle
     cv2.circle(frame, (x, y), r, (0, 255, 0), 2)  # Circle outline
     mask = np.zeros_like(gray)
-    cv2.circle(mask,(x, y), r - 5,255, -1)
+    cv2.circle(mask,(x, y), int(r*0.75),255, -1)
     circle_pixels = cv2.bitwise_and(
         gray,
         gray,
@@ -54,7 +54,7 @@ if circles is not None:
         height = stats[i, cv2.CC_STAT_HEIGHT]
 
         # Ignore tiny noise
-        if area > 50 and width > 20:
+        if np.sqrt(height**2+width**2) > 20 and 50 < area < 1000:
             num_lines += 1
     if num_lines == 0:
         print("0 line circle")
