@@ -4,7 +4,7 @@ import numpy as np
 camera = cv2.VideoCapture(0)
 
 ret, frame = camera.read()
-cv2.imwrite('test2.png', frame)
+cv2.imwrite('test_og.png', frame)
 
 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 gray = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -35,11 +35,9 @@ if circles is not None:
     )
     circle_values = gray[mask > 0]
 
-    threshold = np.percentile(circle_values, 90)
-
     bright = cv2.threshold(
         circle_pixels,
-        threshold,
+        150,
         255,
         cv2.THRESH_BINARY
     )[1]
@@ -52,10 +50,14 @@ if circles is not None:
         area = stats[i, cv2.CC_STAT_AREA]
         width = stats[i, cv2.CC_STAT_WIDTH]
         height = stats[i, cv2.CC_STAT_HEIGHT]
+        x = stats[i, cv2.CC_STAT_LEFT]
+        y = stats[i, cv2.CC_STAT_TOP]
 
         # Ignore tiny noise
         if np.sqrt(height**2+width**2) > 20 and 50 < area < 1000:
             num_lines += 1
+            cv2.line(frame, (x, y), (x+width, y+height), (0, 255, 0), 2)
+
     if num_lines == 0:
         print("0 line circle")
     elif num_lines == 1:
@@ -67,6 +69,7 @@ if circles is not None:
 else:
     print("No circles detected")
 # Step 6: Display results
+cv2.imwrite('test_mod.png', frame)
 cv2.imshow('Original Image', frame)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
